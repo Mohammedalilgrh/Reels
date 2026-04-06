@@ -202,22 +202,29 @@ app.post('/api/generate-video', async (req, res) => {
     const filterComplex = [];
     for (let i = 0; i < sceneImagePaths.length; i++) {
       const scene = validScenes[i];
-      // Professional text wrapping and cleaning
       const cleanText = scene.text.replace(/'/g, "");
+      const isImportant = scene.is_important === true;
+      
+      // Shape and reorder Arabic text for the whole phrase
       const shapedText = shapeArabic(cleanText);
-      const wrappedText = shapedText.match(/.{1,20}(\s|$)/g)?.join('\n') || shapedText;
-      
-      // Cinematic Filter: 4:3 content centered in 9:16 frame with black bars
-      // Subtitle style: Bold yellow text with black border, positioned in the black bar area or lower 4:3 area
+      const wrappedText = shapedText.match(/.{1,25}(\s|$)/g)?.join('\n') || shapedText;
       const escapedText = escapeFFmpegText(wrappedText);
-      const fontPath = path.join(__dirname, 'Amiri-Bold.ttf');
       
+      const fontPath = path.join(__dirname, 'Amiri-Bold.ttf');
+      const color = isImportant ? 'yellow' : 'white';
+      const fontSize = isImportant ? 115 : 95;
+      
+      // Cinematic Filter: 4:3 content in 9:16 frame
+      // Text positioned slightly lower and to the left of center for a more dynamic look
       filterComplex.push(
-        `[${i}:v]scale=1080:810:force_original_aspect_ratio=increase,crop=1080:810,` + // Scale to 4:3 (1080x810)
-        `pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,` + // Pad to 9:16 (1080x1920) with black bars
+        `[${i}:v]scale=1080:810:force_original_aspect_ratio=increase,crop=1080:810,` +
+        `pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,` +
         `setsar=1,format=yuv420p,` +
         `eq=brightness=0.02:contrast=1.2:saturation=1.3,` + 
-        `drawtext=fontfile='${fontPath}':text='${escapedText}':fontcolor=yellow:fontsize=75:borderw=4:bordercolor=black:line_spacing=20:x=(w-text_w)/2:y=(h+810)/2+20:fix_bounds=true[v${i}]`
+        `drawtext=fontfile='${fontPath}':text='${escapedText}':fontcolor=${color}:fontsize=${fontSize}:borderw=8:bordercolor=black@0.8:` +
+        `shadowcolor=black@1.0:shadowx=10:shadowy=10:line_spacing=30:` +
+        `x=(w-text_w)/2 - 100:y=(h-text_h)/2 + 80:fix_bounds=true:` +
+        `alpha='if(lt(t,0.3),t/0.3,1)'[v${i}]`
       );
     }
 

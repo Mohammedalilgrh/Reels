@@ -31,26 +31,61 @@ export default function App() {
       return;
     }
 
+    // Check for API Key if needed
+    if (typeof window !== 'undefined' && (window as any).aistudio) {
+      const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        const confirmKey = window.confirm('لقد تجاوزت حصة الاستخدام المجانية. هل تود اختيار مفتاح API خاص بك للمتابعة؟');
+        if (confirmKey) {
+          await (window as any).aistudio.openSelectKey();
+        }
+      }
+    }
+
     setLoading(true);
     setError(null);
     setVideoUrl(null);
     setProgress('جاري تحليل النص وتوليد الصوت الذكي...');
 
+    const fetchWithRetry = async (fn: () => Promise<any>, retries = 3, delay = 2000) => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          return await fn();
+        } catch (err: any) {
+          const isQuotaError = err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED');
+          if (isQuotaError && i < retries - 1) {
+            setProgress(`تجاوزت الحصة، جاري المحاولة مرة أخرى خلال ${delay/1000} ثوانٍ... (${i + 1}/${retries})`);
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2; // Exponential backoff
+            continue;
+          }
+          throw err;
+        }
+      }
+    };
+
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
-      // 1. Generate optimized keywords for each scene using Gemini
-      const keywordResponse = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: `حلل النص التالي وقسمه إلى مشاهد قصيرة (حوالي 5-8 ثوانٍ لكل مشهد). لكل مشهد، أعطني الكلمات المفتاحية (باللغة الإنجليزية) للبحث عن صورة في Pexels تعبر عن "النتيجة النهائية" (Outcome) وليس المنتج فقط، بأسلوب سينمائي فاخر.
+      // 1. Generate optimized keywords for each scene using Gemini (Switch to Flash for better quota)
+      const keywordResponse = await fetchWithRetry(() => ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `حلل النص التالي وقسمه إلى جمل قصيرة جداً (Phrases) تتناسب تماماً مع إيقاع الكلام الطبيعي (حوالي 2-4 كلمات لكل جملة). 
+        لكل جملة، أعطني الكلمات المفتاحية (باللغة الإنجليزية) للبحث عن فيديو أو صورة في Pexels تعبر عن "النتيجة النهائية الفاخرة" (Luxury Outcome) بأسلوب سينمائي مذهل.
+        تأكد من أن الكلمات المفتاحية تصف مشاهد حركية أو عاطفية (مثل: cinematic luxury private jet, emotional success, high contrast city view).
+        حدد أيضاً إذا كانت الجملة تحتوي على "كلمة قوية" (Power Word) لتمييزها.
         النص: ${script}
         
         أريد الرد بصيغة JSON فقط كقائمة من الكائنات:
-        [{ "text": "نص المشهد بالعربي", "keyword": "cinematic luxury lifestyle keyword in english" }]`,
+        [{ 
+          "text": "الجملة بالعربي", 
+          "keyword": "cinematic luxury emotional keyword in english",
+          "is_important": true/false
+        }]`,
         config: {
           responseMimeType: "application/json",
         }
-      });
+      }));
 
       const scenesData = JSON.parse(keywordResponse.text || "[]");
       if (!scenesData.length) throw new Error("فشل في تحليل مشاهد النص.");
@@ -58,7 +93,7 @@ export default function App() {
       setProgress('جاري توليد التعليق الصوتي الطبيعي...');
 
       // 2. Generate high-quality TTS using Gemini
-      const ttsResponse = await ai.models.generateContent({
+      const ttsResponse = await fetchWithRetry(() => ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: `اقرأ النص التالي بأسلوب ${voice === 'female' ? 'أنثوي هادئ واحترافي' : 'ذكوري قوي وواثق'}: ${script}` }] }],
         config: {
@@ -69,7 +104,7 @@ export default function App() {
             },
           },
         },
-      });
+      }));
 
       const audioPart = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData;
       const audioBase64 = audioPart?.data;
@@ -297,6 +332,14 @@ export default function App() {
             <span>Pexels HD</span>
             <span>Gemini TTS</span>
             <span>FFmpeg 4:3</span>
+            {typeof window !== 'undefined' && (window as any).aistudio && (
+              <button 
+                onClick={() => (window as any).aistudio.openSelectKey()}
+                className="hover:text-white transition-colors"
+              >
+                تغيير مفتاح API
+              </button>
+            )}
           </div>
           <p>© 2026 AI Studio Build</p>
         </footer>
