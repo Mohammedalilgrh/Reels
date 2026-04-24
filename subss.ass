@@ -4,10 +4,8 @@ PlayResX:1080
 PlayResY:1920
 
 [V4+ Styles]
-Format:
-Name,Fontname,Fontsize,PrimaryColour,Bold,Spacing,OutlineColour,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV
-Style:
-Default,Playfair Display,85,&H00F8F8F8,1,4,&H00000000,1,0,0,5,10,10,10
+Format:Name,Fontname,Fontsize,PrimaryColour,Bold,Spacing,OutlineColour,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV
+Style:Default,Playfair Display,85,&H00F8F8F8,1,4,&H00000000,1,0,0,5,10,10,10
 
 [Events]
 Format: Layer,Start,End,Style,Text
