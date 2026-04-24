@@ -5,7 +5,7 @@ PlayResY:1920
 
 [V4+ Styles]
 Format:Name,Fontname,Fontsize,PrimaryColour,Bold,Spacing,OutlineColour,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV
-Style:Default,Playfair Display,75,&H00F8F8F8,2,4,&H00000000,1,0,4,2,120,120,550
+Style:Default,Playfair Display,67,&H00F8F8F8,3,4,&H00000000,1,0,4,2,120,120,500
 
 [Events]
 Format: Layer,Start,End,Style,Text
